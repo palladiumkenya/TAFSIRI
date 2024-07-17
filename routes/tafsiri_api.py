@@ -13,7 +13,7 @@ from llama_index.core.objects import (
 )
 from llama_index.llms.openai import OpenAI
 from llama_index.legacy import SQLDatabase
-
+import time
 import logging
 
 from settings import settings
@@ -68,8 +68,7 @@ def get_dictionary_info():
     for table_name in tables:
         table_description = ""
         columns_info = {}
-        table_glossary_uri = f"{
-            om_host}/api/v1/glossaryTerms/name/text2sql.{table_name}"
+        table_glossary_uri = f"{om_host}/api/v1/glossaryTerms/name/text2sql.{table_name}"
         try:
             response = requests.get(table_glossary_uri, headers={
                                     "Authorization": "Bearer " + jwt_token}, verify=False)
@@ -84,8 +83,7 @@ def get_dictionary_info():
                     columns = table.columns.keys()
                     columns_info_list = []
                     for column_name in columns:
-                        column_glossary_uri = f"{
-                            om_host}/api/v1/glossaryTerms/name/text2sql.{table_name}.{column_name}"
+                        column_glossary_uri = f"{om_host}/api/v1/glossaryTerms/name/text2sql.{table_name}.{column_name}"
                         try:
                             response = requests.get(column_glossary_uri,
                                                     headers={"Authorization": "Bearer " + jwt_token})
@@ -93,8 +91,7 @@ def get_dictionary_info():
 
                             if response.status_code // 100 == 2:
                                 column_info = response.json()
-                                column_desc = f"\"{column_name}\": {
-                                    column_info.get('description')}"
+                                column_desc = f"\"{column_name}\": {column_info.get('description')}"
                                 columns_info_list.append(column_desc)
                         except requests.exceptions.HTTPError as he:
                             if he.response.status_code // 100 == 4:
@@ -102,8 +99,7 @@ def get_dictionary_info():
                                     f"Glossary term not found for URI: {column_glossary_uri}")
                             else:
                                 print(
-                                    f"Failed to retrieve column description for {
-                                        column_name} with message {he.response.text}",
+                                    f"Failed to retrieve column description for {column_name} with message {he.response.text}",
                                     he)
                     columns_info = ". ".join(columns_info_list)
         except requests.exceptions.HTTPError as he:
@@ -134,6 +130,7 @@ class NaturalLanguageQuery(BaseModel):
 
 @router.post('/query_from_natural_language')
 async def query_from_natural_language(nl_query: NaturalLanguageQuery):
+    start_time = time.time()
     question = nl_query.question
     try:
         # store schema information for each table.
@@ -254,21 +251,16 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
         print("Second Identified Table:", second_identified_table)
 
         custom_prompt_1 = ("Please calculate proportion when asked to, generate sql query that contains both the numbers and proportion. Only output sql query, do not attempt to generate an answer"
-                           f"You can refer to {
-                               custom_txt2sql_prompt} for examples and instructions on how to generate a SQL statement."
-                           f"Write a SQL query to answer the following question: {
-                               question}. "
+                           f"You can refer to {custom_txt2sql_prompt} for examples and instructions on how to generate a SQL statement."
+                           f"Write a SQL query to answer the following question: {question}. "
                            f"Using the table {first_identified_table}."
                            "Please take note of the column names which are in quotes and their description."
                            )
         custom_prompt_2 = ("Please calculate proportion when asked to, generate sql query that contains both the numbers and proportion. Only output sql query, do not attempt to generate an answer"
-                           f"You can refer to {
-                               custom_txt2sql_prompt} for examples and instructions on how to generate a SQL statement. "
-                           f"Write a SQL query to answer the following question: {
-                               question}, using the table {first_identified_table}. "
+                           f"You can refer to {custom_txt2sql_prompt} for examples and instructions on how to generate a SQL statement. "
+                           f"Write a SQL query to answer the following question: {question}, using the table {first_identified_table}. "
                            "Please take note of the column names which are in quotes and their description. Do not use the two tables if you are not merging, be careful to differentiate which column names are in which table."
-                           f"If the question requires joining or merging, join with {
-                               second_identified_table} to retrieve the required variables."
+                           f"If the question requires joining or merging, join with {second_identified_table} to retrieve the required variables."
                            )
 
         # Step 3: Determine if the question requires the use of the second table
@@ -300,11 +292,12 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
             columns = result.keys()
 
             data = [dict(zip(columns, row)) for row in rows]
-
-        return {"sql_query": sql_query, "data": data}
+        end_time = time.time()  # Record the end time
+        time_taken = end_time - start_time  # Calculate the time taken
+        return {"sql_query": sql_query, "data": data, "time_taken": time_taken}
     except Exception as e:
         log.error(f"Error processing query: {e}")
-        return {"sql_query": sql_query, "data": []}
+        return {"sql_query": sql_query, "data": [], "time_taken": 0}
 
 
 # Endpoint to retrieve table descriptions
