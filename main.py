@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import text2sql_api
+from routes import tafsiri_api
 
 app = FastAPI()
 
@@ -16,7 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(text2sql_api.router, tags=[
+app.include_router(tafsiri_api.router, tags=[
                    'Text2SQL'], prefix='/api/text2sql')
 
 
