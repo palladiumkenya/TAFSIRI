@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import access_api, dictionary_mapper_api, data_dictionary_api, text2sql_api
+from routes import text2sql_api
 
 app = FastAPI()
 
