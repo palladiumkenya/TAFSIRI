@@ -1,10 +1,14 @@
 import functools
 import os
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import Table, create_engine, inspect, MetaData, text
-from sqlalchemy.orm import sessionmaker
 import requests
+import time
+import logging
+
+from bson import ObjectId
+from fastapi import APIRouter, HTTPException
+from datetime import datetime
+from pydantic import BaseModel
+from sqlalchemy import Table, text
 from llama_index.core import VectorStoreIndex
 from llama_index.core.objects import (
     ObjectIndex,
@@ -13,10 +17,10 @@ from llama_index.core.objects import (
 )
 from llama_index.llms.openai import OpenAI
 from llama_index.legacy import SQLDatabase
-import time
-import logging
 
+from database.schema import TafsiriResponsesBaseSchema
 from settings import settings
+from database.database import engine, SessionLocal, metadata, client, TafsiriResp
 
 # Set up logging
 log = logging.getLogger()
@@ -27,23 +31,6 @@ handler.setFormatter(logging.Formatter(
 log.addHandler(handler)
 
 router = APIRouter()
-
-DB_PASSWORD = settings.REPORTING_PASSWORD
-DB_HOST_PORT = settings.REPORTING_HOST
-DB = settings.REPORTING_DB
-USER = settings.REPORTING_USER
-
-# Construct the connection string
-SQL_DATABASE_URL = f'mssql+pymssql://{USER}:{DB_PASSWORD}@{DB_HOST_PORT}/{DB}'
-
-# Create an engine instance
-engine = create_engine(
-    SQL_DATABASE_URL, connect_args={}, echo=False
-)
-metadata = MetaData()
-metadata.reflect(bind=engine)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-inspector = inspect(engine)
 
 
 # OpenAI setup
@@ -71,7 +58,7 @@ def get_dictionary_info():
         table_glossary_uri = f"{om_host}/api/v1/glossaryTerms/name/text2sql.{table_name}"
         try:
             response = requests.get(table_glossary_uri, headers={
-                                    "Authorization": "Bearer " + jwt_token}, verify=False)
+                                    "Authorization": f"Bearer {jwt_token}"}, verify=False)
             response.raise_for_status()
 
             if response.status_code // 100 == 2:
@@ -86,7 +73,7 @@ def get_dictionary_info():
                         column_glossary_uri = f"{om_host}/api/v1/glossaryTerms/name/text2sql.{table_name}.{column_name}"
                         try:
                             response = requests.get(column_glossary_uri,
-                                                    headers={"Authorization": "Bearer " + jwt_token})
+                                                    headers={"Authorization": f"Bearer {jwt_token}"})
                             response.raise_for_status()
 
                             if response.status_code // 100 == 2:
@@ -111,8 +98,7 @@ def get_dictionary_info():
 
         tables_info.append(SQLTableSchema(
             table_name=table_name,
-            context_str=('description of the table: ' + table_description +
-                         '. These are columns in the table and their descriptions: ' + columns_info)
+            context_str=(f'description of the table: {table_description}. These are columns in the table and their descriptions: {columns_info}')
         ))
 
     return tables_info
@@ -294,24 +280,66 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
             data = [dict(zip(columns, row)) for row in rows]
         end_time = time.time()  # Record the end time
         time_taken = end_time - start_time  # Calculate the time taken
-        return {"sql_query": sql_query, "data": data, "time_taken": time_taken}
+        # Save metrics for analytics
+        response_data = {
+            "question": question,
+            "response": sql_query,
+            "time_taken_mms": time_taken,
+            "created_at": datetime.now(),
+        }
+        validated_data = TafsiriResponsesBaseSchema(
+            **response_data
+        )
+        saved_response = TafsiriResp.insert_one(validated_data.dict())
+
+        return {"sql_query": sql_query, "data": data, "time_taken": time_taken, "saved_response_id": saved_response.inserted_id}
     except Exception as e:
         log.error(f"Error processing query: {e}")
-        return {"sql_query": sql_query, "data": [], "time_taken": 0}
+        # Save metrics for analytics
+        response_data = {
+            "question": question,
+            "response": sql_query,
+            "time_taken_mms": 0,
+            "created_at": datetime.now(),
+            "is_valid": False
+        }
+        validated_data = TafsiriResponsesBaseSchema(
+            **response_data
+        )
+        saved_response = TafsiriResp.insert_one(validated_data.dict())
+        return {"sql_query": sql_query or None, "data": [], "time_taken": 0, "saved_response_id": saved_response.inserted_id}
+
+
+class NaturalLanguageResponseRating(BaseModel):
+    response_rating: int
+    response_rating_comment: str | None = None
+
+
+@router.post('/rate/{response_id}')
+async def rate_response(rating: NaturalLanguageResponseRating, response_id: str):
+    try:
+        response_id_obj = ObjectId(response_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid response_id") from e
+    
+    TafsiriResp.update_one(
+        {"_id": response_id_obj},
+        {"$set": {"response_rating": rating.response_rating, "response_rating_comment": rating.response_rating_comment}}
+    )
+
+    return {"success": True}
 
 
 # Endpoint to retrieve table descriptions
 @router.get('/table_descriptions')
 async def get_table_descriptions():
     try:
-        descriptions = []
         tables_info = get_dictionary_info_cached()
-        for table in tables_info:
-            descriptions.append({
-                "table_name": table.table_name,
-                "description": table.context_str
-            })
+        descriptions = [
+            {"table_name": table.table_name, "description": table.context_str}
+            for table in tables_info
+        ]
         return {"tables": descriptions}
     except Exception as e:
         log.error(f"Error retrieving table descriptions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

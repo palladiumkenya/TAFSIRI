@@ -2,11 +2,8 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # CASSANDRA_HOST: str
-    # CASSANDRA_PORT: int
-    # CASSANDRA_DB: str
-    # CASSANDRA_USER: str
-    # CASSANDRA_PASSWORD: str
+    MONGODB_URL: str
+    DATABASE_NAME: str
 
     REPORTING_DB: str
     REPORTING_USER: str

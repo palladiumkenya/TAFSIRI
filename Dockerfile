@@ -23,8 +23,8 @@ COPY . .
 RUN apt-get update && apt-get install -y curl unixodbc
 
 # Expose the port
-EXPOSE 4142
+EXPOSE 4143
 
 
 # Command to run the application and start the cron job
-CMD uvicorn main:app --host 0.0.0.0 --port 2122
+CMD uvicorn main:app --host 0.0.0.0 --port 2123
