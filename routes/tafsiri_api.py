@@ -294,7 +294,7 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
         )
         saved_response = TafsiriResp.insert_one(validated_data.dict())
 
-        return {"sql_query": sql_query, "data": data, "time_taken": time_taken, "saved_response_id": saved_response.inserted_id}
+        return {"sql_query": sql_query, "data": data, "time_taken": time_taken, "saved_response_id": str(saved_response.inserted_id)}
     except Exception as e:
         log.error(f"Error processing query: {e}")
         # Save metrics for analytics
@@ -309,7 +309,7 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
             **response_data
         )
         saved_response = TafsiriResp.insert_one(validated_data.dict())
-        return {"sql_query": sql_query or None, "data": [], "time_taken": 0, "saved_response_id": saved_response.inserted_id}
+        return {"sql_query": sql_query or None, "data": [], "time_taken": 0, "saved_response_id": str(saved_response.inserted_id)}
 
 
 class NaturalLanguageResponseRating(BaseModel):
