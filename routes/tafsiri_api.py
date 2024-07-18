@@ -112,12 +112,14 @@ def get_dictionary_info_cached():
 # Endpoint to retrieve data based on natural language query
 class NaturalLanguageQuery(BaseModel):
     question: str
+    user_id: str
 
 
 @router.post('/query_from_natural_language')
 async def query_from_natural_language(nl_query: NaturalLanguageQuery):
     start_time = time.time()
     question = nl_query.question
+    user_id = nl_query.user_id
     try:
         # store schema information for each table.
         table_schema_objs = get_dictionary_info_cached()
