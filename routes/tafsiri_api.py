@@ -321,7 +321,7 @@ async def rate_response(rating: NaturalLanguageResponseRating, response_id: str)
         response_id_obj = ObjectId(response_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid response_id") from e
-    
+
     TafsiriResp.update_one(
         {"_id": response_id_obj},
         {"$set": {"response_rating": rating.response_rating, "response_rating_comment": rating.response_rating_comment}}
