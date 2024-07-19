@@ -1,0 +1,33 @@
+name: deploy tafsiri-backend
+on:
+  push:
+    branches: [ master ]
+jobs:
+ 
+  build:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+    - name: executing remote connection
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.CICD_SECRET }}
+        port: ${{ secrets.PORT }}
+        command_timeout: 200m
+        script: |
+           cd /apps/githubworkflows
+           sudo rm -rf TAFSIRI-backend
+           sudo mkdir TAFSIRI-backend
+           sudo chown -R cicd:cicd TAFSIRI-backend
+           git config --global --add safe.directory /apps/githubworkflows/TAFSIRI-backend
+           cd /apps/githubworkflows/TAFSIRI-backend
+           git clone https://github.com/palladiumkenya/TAFSIRI-backend.git .
+           sudo chown -R cicd:cicd /apps/githubworkflows/TAFSIRI-backend
+           sudo cp /apps/dockerApps/TAFSIRI-backend/secrets/.env /apps/githubworkflows/TAFSIRI-backend/
+           sudo docker build -t cicdapplication/tafsiri-backend:latest .
+           sudo docker stop tafsiri-backend
+           sudo docker rm tafsiri-backend
+           sudo docker run -p 4143:2123 -d --name=tafsiri-backend --restart=always --link mongodb --net spot_spot cicdapplication/tafsiri-backend:latest
+       
