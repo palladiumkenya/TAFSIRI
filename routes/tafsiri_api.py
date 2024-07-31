@@ -104,6 +104,11 @@ def get_dictionary_info():
     return tables_info
 
 
+# Step 3: Determine if the question requires the use of the second table
+def is_join_required(first_table_name):
+    return first_table_name in ["Linelist_FACTART", "LineListTransHTS", "LineListTransPNS", "LinelistHTSEligibilty"]
+
+
 @functools.lru_cache(maxsize=None)
 def get_dictionary_info_cached():
     return get_dictionary_info()
@@ -133,10 +138,6 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
 
         from llama_index.core.indices.struct_store import SQLTableRetrieverQueryEngine
 
-        query_engine = SQLTableRetrieverQueryEngine(
-            sql_database,
-            obj_index.as_retriever(similarity_top_k=2),
-        )
         custom_txt2sql_prompt = """Given an input question, construct a syntactically correct SQL query to run, then look at the results of the query and return a comprehensive and detailed answer. Ensure that you:
             - Select only the relevant columns needed to answer the question.
             - Use correct column and table names as provided in the schema description. Avoid querying for columns that do not exist.
@@ -156,7 +157,7 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
 
 
              Special Instructions:
-            - Treat "txcurr" and "active patients on treatment" as interchangeable terms in your queries.
+            - Treat "txcurr", "active patients on treatment" and "current on art" as interchangeable terms in your queries.
             - Exposed Infants (HEI) and HEI are used interchangably.
             - Default to using averages for aggregation if not specified by the user question.
             - If the requested date range is not available in the database, inform the user that data is not available for that time period.
@@ -167,14 +168,23 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
             - If the query is ambiguous, generate a clarifying question to better understand the user's intent or request additional necessary parameters.
             - Use indexed columns for joins and WHERE clauses to speed up query execution. Use `EXPLAIN` plans for complex queries to ensure optimal performance.
             - Join ON "PatientPKHASH" AND "MFLCode" for queries that require joins.
-            - txcurr is where IsTxcurr=1. "
-            - When NUPI = NULL means you have not been verified"
+            - txcurr is where IsTxcurr=1.
+            - current on art is where IsTxcurr=1.
+            - When NUPI = NULL means you have not been verified.
+            - Verified clients are clients who have a Nupi Number.
             - Seroconversion is turning Positive from HIV test
             - Interruption in treatment (IIT) is the patients with Loss to Follow up outcome description."
             - Pre-exposure prophylaxis and PreP are used interchangably
-            - Infected Infants also means HEI
+            - Infected Infants also means HEI 
 
              Additional Instructions:
+
+            When encountering the phrase 'as at' in a query prompt, interpret it as a requirement to filter records up to and including a specific date. Convert the 'as 
+            at [Month Year]' phrase into a condition that ensures the query selects records up to the end of the specified month. For example, 'as at June 2024' should be 
+            translated into a date filter for '<= 2024-06-30'. Incorporate this date condition into the SQL query accordingly.
+
+            The key difference is that the "Differentiated Care" column refers to a model of multi-month dispensing, whereas "ONMMD" specifically denotes multi-month dispensing itself.
+
             Please confirm the variables names in the schema before generating a query
 
             You are required to use the following format, each taking one line:
@@ -184,9 +194,10 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
 
             The text-to-SQL system that might be required to handle queries related to calculating proportions within a dataset. Your system should be able to generate SQL queries to calculate the proportion of a certain category within a dataset table.
 
+            hints only gives you the columns, please use the hint to calculate proportions
+
             Example 1 :
             If a user asks, "What proportion of TxCurr,  have hypertension by county", your system should generate a SQL query like:
-            hints only gives you the columns, please use the hint to calculate proportions
 
             SELECT County, COUNT(*) AS TotalTxCurr, SUM(CASE WHEN HasHypertension = 1 THEN 1 ELSE 0 END) AS TotalHypertension, SUM(CASE WHEN HasHypertension = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS ProportionHypertension FROM Linelist_FACTART WHERE ISTxCurr = 1 GROUP BY County;
 
@@ -218,8 +229,8 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
             If a user asks, "among Counties that conducted more than 10,000 HIV tests in 2023, which county has the highest number of active patients on treatment?, your system should generate a SQL query like:
 
             SQLQUERY: SELECT County, COUNT(*) AS TotalTxCurr FROM Linelist_FACTART WHERE County IN (SELECT County FROM LineListTransHTS WHERE YEAR(TestDate) = 2023 GROUP BY County HAVING COUNT(*) > 10000) AND ISTxCurr = 1 GROUP BY County ORDER BY TotalTxCurr DESC;
-                """
 
+        """
         from llama_index.core.retrievers import NLSQLRetriever
 
         # default retrieval (return_raw=True)
@@ -230,7 +241,6 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
         # Retrieve objects dynamically with a maximum similarity_top_k value of 2
         retriever = obj_index.as_retriever(similarity_top_k=2)
         retrieved_objs = retriever.retrieve(question)
-        retrieved_objs
 
         first_identified_table = retrieved_objs[0]
         second_identified_table = retrieved_objs[1]
@@ -238,22 +248,19 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
         print("First Identified Table:", first_identified_table)
         print("Second Identified Table:", second_identified_table)
 
-        custom_prompt_1 = ("Please calculate proportion when asked to, generate sql query that contains both the numbers and proportion. Only output sql query, do not attempt to generate an answer"
-                           f"You can refer to {custom_txt2sql_prompt} for examples and instructions on how to generate a SQL statement."
-                           f"Write a SQL query to answer the following question: {question}. "
-                           f"Using the table {first_identified_table}."
-                           "Please take note of the column names which are in quotes and their description."
-                           )
-        custom_prompt_2 = ("Please calculate proportion when asked to, generate sql query that contains both the numbers and proportion. Only output sql query, do not attempt to generate an answer"
-                           f"You can refer to {custom_txt2sql_prompt} for examples and instructions on how to generate a SQL statement. "
-                           f"Write a SQL query to answer the following question: {question}, using the table {first_identified_table}. "
-                           "Please take note of the column names which are in quotes and their description. Do not use the two tables if you are not merging, be careful to differentiate which column names are in which table."
-                           f"If the question requires joining or merging, join with {second_identified_table} to retrieve the required variables."
-                           )
-
-        # Step 3: Determine if the question requires the use of the second table
-        def is_join_required(first_table_name):
-            return first_table_name in ["Linelist_FACTART", "LineListTransHTS", "LineListTransPNS", "LinelistHTSEligibilty"]
+        custom_prompt_1 = (
+            "Please calculate proportion when asked to, generate sql query that contains both the numbers and proportion. Only output sql query, do not attempt to generate an answer"
+            f"You can refer to {custom_txt2sql_prompt} for examples and instructions on how to generate a SQL statement."
+            f"Write a SQL query to answer the following question: {question}, Using the table {first_identified_table}."
+            "Please take note of the column names which are in quotes and their description."
+        )
+        custom_prompt_2 = (
+            "Please calculate proportion when asked to, generate sql query that contains both the numbers and proportion. Only output sql query, do not attempt to generate an answer"
+            f"You can refer to {custom_txt2sql_prompt} for examples and instructions on how to generate a SQL statement. "
+            f"Write a SQL query to answer the following question: {question}, using the table {first_identified_table}. "
+            "Please take note of the column names which are in quotes and their description. Do not use the two tables if you are not merging, be careful to differentiate which column names are in which table."
+            f"If the question requires joining or merging, join with {second_identified_table} to retrieve the required variables."
+        )
 
         first_table_name = first_identified_table.table_name
         print(first_table_name)
