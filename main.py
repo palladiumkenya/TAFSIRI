@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import tafsiri_api
+from routes import tafsiri_api, config_api
 
 app = FastAPI()
 
@@ -18,6 +18,7 @@ app.add_middleware(
 
 app.include_router(tafsiri_api.router, tags=[
                    'Text2SQL'], prefix='/api/text2sql')
+app.include_router(config_api.router, tags=['Config'], prefix='/api/config')
 
 
 @app.get("/api/healthchecker")
