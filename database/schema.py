@@ -1,4 +1,5 @@
 from typing import Optional
+import uuid
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -12,6 +13,17 @@ class TafsiriResponsesBaseSchema(BaseModel):
     created_at: datetime = datetime.now()
     created_by: Optional[str] = None
     is_valid: bool = True
+
+    class Config:
+        extra = 'allow'
+        orm_mode = True
+
+
+class TafsiriConfigSchema(BaseModel):
+    configID: int = uuid.uuid4()
+    tables: list
+    data_source: str
+    example_prompt: str
 
     class Config:
         extra = 'allow'
