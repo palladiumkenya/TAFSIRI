@@ -22,7 +22,11 @@ class TafsiriResponsesBaseSchema(BaseModel):
 class TafsiriConfigSchema(BaseModel):
     configID: int = uuid.uuid4()
     tables: list
-    data_source: str
+    db_host: str
+    db_port: int
+    db_user: str
+    db_password: str
+    db_name: str
     example_prompt: str
 
     class Config:
