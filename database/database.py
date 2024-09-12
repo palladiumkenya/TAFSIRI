@@ -1,4 +1,4 @@
-from pymongo import mongo_client
+from pymongo import MongoClient, mongo_client
 import pymongo
 from sqlalchemy import create_engine, text, MetaData, inspect
 from sqlalchemy.ext.declarative import declarative_base
@@ -33,6 +33,11 @@ metadata.reflect(bind=engine)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 inspector = inspect(engine)
 
+# Function to get a MongoDB collection
+def get_mongo_collection(collection_name):
+    client = MongoClient(settings.MONGODB_URL)
+    db = client[settings.DATABASE_NAME]
+    return db[collection_name]
 
 def get_db():
     db = SessionLocal()
@@ -40,4 +45,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
