@@ -23,7 +23,7 @@ app.include_router(config_api.router, tags=['Config'], prefix='/api/config')
 
 @app.get("/api/healthchecker")
 def root():
-    return {"message": "Welcome to data map, we are up and running"}
+    return {"message": "Welcome to Tafsiri, we are up and running"}
 
 
 # Run the FastAPI application
