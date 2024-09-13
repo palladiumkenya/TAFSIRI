@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -19,16 +19,16 @@ class TafsiriResponsesBaseSchema(BaseModel):
 
 
 class TafsiriConfigSchema(BaseModel):
-    config_name: str
-    tables: list
-    db_host: str
-    db_port: int
-    db_user: str
-    db_password: str
-    db_name: str
-    example_prompt: str
-    om_host: str
-    om_jwt: str
+    config_name: Optional[str] = None
+    tables: Optional[List[str]] = None
+    db_host: Optional[str] = None
+    db_port: Optional[int] = None
+    db_user: Optional[str] = None
+    db_password: Optional[str] = None
+    db_name: Optional[str] = None
+    example_prompt: Optional[str] = None
+    om_host: Optional[str] = None
+    om_jwt: Optional[str] = None
 
     class Config:
         extra = 'allow'

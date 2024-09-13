@@ -63,18 +63,31 @@ async def get_config(config_id):
 
 
 @router.put("/update_config/{config_id}", response_model=TafsiriConfigSchema)
-async def update_config(config_id, config):
+async def update_config(config_id: str, updated_config: TafsiriConfigSchema, collection=Depends(lambda: get_mongo_collection(configs))):
     """
     Update a specific configuration for the Tafsiri API
     """
-    collection = get_mongo_collection(configs)
     if collection is None:
         raise HTTPException(status_code=500, detail="Collection not found")
-    config_data = config.model_dump(exclude_unset=True)
-    result = collection.update_one({"_id": config_id}, {"$set": config_data})
+
+    try:
+        config_id = ObjectId(config_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid config ID format")
+
+    config_data = collection.find_one({"_id": config_id})
+    if config_data is None:
+        raise HTTPException(status_code=404, detail="Config not found")
+
+    updated_data = updated_config.model_dump(exclude_unset=True)
+    result = collection.update_one({"_id": config_id}, {"$set": updated_data})
+
     if result.modified_count == 1:
-        return format_mongo_obj(config_data)
-    raise HTTPException(status_code=404, detail="Config not found")
+        updated_config_data = collection.find_one({"_id": config_id})
+        return format_mongo_obj(updated_config_data)
+
+    raise HTTPException(
+        status_code=400, detail="Configuration could not be updated")
 
 
 @router.delete("/delete_config/{config_id}")
