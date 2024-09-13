@@ -1,9 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
-from pymongo.collection import Collection
 from database.schema import TafsiriConfigSchema
 from bson.objectid import ObjectId
 from database.database import get_mongo_collection
-from settings import settings
 
 router = APIRouter()
 
