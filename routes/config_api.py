@@ -1,12 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from database.schema import TafsiriConfigSchema
 from bson.objectid import ObjectId
-from database.database import get_mongo_collection
+from database.database import get_mongo_collection, CONFIGS_COLLECTION
 
 router = APIRouter()
-
-# Collection name
-configs = "tafsiri_configs"
 
 
 def format_mongo_obj(obj):
@@ -18,7 +15,7 @@ def format_mongo_obj(obj):
 
 
 @router.get("/get_configs", response_model=list[TafsiriConfigSchema])
-async def get_configs(collection=Depends(lambda: get_mongo_collection(configs))):
+async def get_configs(collection=Depends(lambda: get_mongo_collection(CONFIGS_COLLECTION))):
     """
     Get all configurations for the Tafsiri API
     """
@@ -27,7 +24,7 @@ async def get_configs(collection=Depends(lambda: get_mongo_collection(configs)))
 
 
 @router.post("/new_config", response_model=TafsiriConfigSchema)
-async def create_new_config(config: TafsiriConfigSchema, collection=Depends(lambda: get_mongo_collection(configs))):
+async def create_new_config(config: TafsiriConfigSchema, collection=Depends(lambda: get_mongo_collection(CONFIGS_COLLECTION))):
     """
     Create a new configuration for the Tafsiri API
     """
@@ -44,7 +41,7 @@ async def get_config(config_id):
     """
     Get a specific configuration for the Tafsiri API
     """
-    collection = get_mongo_collection(configs)
+    collection = get_mongo_collection(CONFIGS_COLLECTION)
     if collection is None:
         raise HTTPException(status_code=500, detail="Collection not found")
     try:
@@ -63,7 +60,7 @@ async def get_config(config_id):
 
 
 @router.put("/update_config/{config_id}", response_model=TafsiriConfigSchema)
-async def update_config(config_id: str, updated_config: TafsiriConfigSchema, collection=Depends(lambda: get_mongo_collection(configs))):
+async def update_config(config_id: str, updated_config: TafsiriConfigSchema, collection=Depends(lambda: get_mongo_collection(CONFIGS_COLLECTION))):
     """
     Update a specific configuration for the Tafsiri API
     """
@@ -95,7 +92,7 @@ async def delete_config(config_id):
     """
     Delete a specific configuration for the Tafsiri API
     """
-    collection = get_mongo_collection(configs)
+    collection = get_mongo_collection(CONFIGS_COLLECTION)
     if collection is None:
         raise HTTPException(status_code=500, detail="Collection not found")
     try:

@@ -11,6 +11,9 @@ print('Connecting to MongoDB...')
 client = mongo_client.MongoClient(settings.MONGODB_URL)
 print('Connected to MongoDB...')
 
+# Mongo collection names
+CONFIGS_COLLECTION = "tafsiri_configs"
+
 mongo_db = client[settings.DATABASE_NAME]
 TafsiriResp = mongo_db.tafsiri_responses
 # TafsiriResp.create_index([("created_at", pymongo.ASCENDING)], unique=False)

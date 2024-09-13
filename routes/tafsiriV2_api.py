@@ -20,7 +20,7 @@ from llama_index.legacy import SQLDatabase
 
 from database.schema import TafsiriResponsesBaseSchema
 from settings import settings
-from database.database import engine, SessionLocal, metadata, client, TafsiriResp
+from database.database import engine, SessionLocal, get_mongo_collection, metadata, TafsiriResp, CONFIGS_COLLECTION
 
 # Set up logging
 log = logging.getLogger()
@@ -123,7 +123,7 @@ class NaturalLanguageQuery(BaseModel):
     config_id: str
 
 
-@router.post('/query')
+@router.post('/question')
 async def query_from_natural_language(nl_query: NaturalLanguageQuery):
     """
     Endpoint to retrieve data based on natural language query from user
@@ -134,7 +134,7 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
     config_id = nl_query.config_id
 
     # Fetch configuration details
-    collection = client["tafsiri_configs"]
+    collection = get_mongo_collection(CONFIGS_COLLECTION)
     config_id_obj = ObjectId(config_id)
     config = collection.find_one({"_id": config_id_obj})
     if config is None:
@@ -150,7 +150,7 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
     try:
         # store schema information for each table.
         table_schema_objs = get_dictionary_info_cached(
-            tables, om_host, jwt_token)
+            tuple(tables), om_host, jwt_token)
         # Create SQL database
         sql_database = SQLDatabase(engine, include_tables=tables)
         table_node_mapping = SQLTableNodeMapping(sql_database)
@@ -252,38 +252,40 @@ async def query_from_natural_language(nl_query: NaturalLanguageQuery):
         return {"sql_query": sql_query or None, "data": [], "time_taken": 0, "saved_response_id": str(saved_response.inserted_id)}
 
 
-class NaturalLanguageResponseRating(BaseModel):
-    response_rating: int
-    response_rating_comment: str | None = None
+# TODO: Implement the feedbck endpoints
+# class NaturalLanguageResponseRating(BaseModel):
+#     response_rating: int
+#     response_rating_comment: str | None = None
 
 
-@router.post('/rate/{response_id}')
-async def rate_response(rating: NaturalLanguageResponseRating, response_id: str):
-    try:
-        response_id_obj = ObjectId(response_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, detail="Invalid response_id") from e
+# @router.post('/rate/{response_id}')
+# async def rate_response(rating: NaturalLanguageResponseRating, response_id: str):
+#     try:
+#         response_id_obj = ObjectId(response_id)
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=400, detail="Invalid response_id") from e
 
-    TafsiriResp.update_one(
-        {"_id": response_id_obj},
-        {"$set": {"response_rating": rating.response_rating,
-                  "response_rating_comment": rating.response_rating_comment}}
-    )
+#     TafsiriResp.update_one(
+#         {"_id": response_id_obj},
+#         {"$set": {"response_rating": rating.response_rating,
+#                   "response_rating_comment": rating.response_rating_comment}}
+#     )
 
-    return {"success": True}
+#     return {"success": True}
 
 
+# TODO: Implement the Table description endpoint
 # Endpoint to retrieve table descriptions
-@router.get('/table_descriptions')
-async def get_table_descriptions():
-    try:
-        tables_info = get_dictionary_info_cached()
-        descriptions = [
-            {"table_name": table.table_name, "description": table.context_str}
-            for table in tables_info
-        ]
-        return {"tables": descriptions}
-    except Exception as e:
-        log.error(f"Error retrieving table descriptions: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+# @router.get('/table_descriptions')
+# async def get_table_descriptions():
+#     try:
+#         tables_info = get_dictionary_info_cached()
+#         descriptions = [
+#             {"table_name": table.table_name, "description": table.context_str}
+#             for table in tables_info
+#         ]
+#         return {"tables": descriptions}
+#     except Exception as e:
+#         log.error(f"Error retrieving table descriptions: {e}")
+#         raise HTTPException(status_code=500, detail=str(e)) from e
