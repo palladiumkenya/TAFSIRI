@@ -13,7 +13,7 @@ print('Connected to MongoDB...')
 
 mongo_db = client[settings.DATABASE_NAME]
 TafsiriResp = mongo_db.tafsiri_responses
-TafsiriResp.create_index([("created_at", pymongo.ASCENDING)], unique=False)
+# TafsiriResp.create_index([("created_at", pymongo.ASCENDING)], unique=False)
 
 # MSSQL Connections
 DB_PASSWORD = settings.REPORTING_PASSWORD
