@@ -1,5 +1,4 @@
 from typing import Optional
-import uuid
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -28,6 +27,8 @@ class TafsiriConfigSchema(BaseModel):
     db_password: str
     db_name: str
     example_prompt: str
+    om_host: str
+    om_jwt: str
 
     class Config:
         extra = 'allow'
