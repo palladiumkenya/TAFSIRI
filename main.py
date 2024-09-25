@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import tafsiri_api
+from routes import tafsiri_api, config_api, tafsiriV2_api
 
 app = FastAPI()
 
@@ -18,11 +18,14 @@ app.add_middleware(
 
 app.include_router(tafsiri_api.router, tags=[
                    'Text2SQL'], prefix='/api/text2sql')
+app.include_router(config_api.router, tags=['Config'], prefix='/api/config')
+app.include_router(tafsiriV2_api.router, tags=[
+                   'TafsiriV2'], prefix='/api/tafsiri')
 
 
 @app.get("/api/healthchecker")
 def root():
-    return {"message": "Welcome to data map, we are up and running"}
+    return {"message": "Welcome to Tafsiri, we are up and running"}
 
 
 # Run the FastAPI application

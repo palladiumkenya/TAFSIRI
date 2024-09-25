@@ -1,4 +1,4 @@
-from pymongo import mongo_client
+from pymongo import MongoClient, mongo_client
 import pymongo
 from sqlalchemy import create_engine, text, MetaData, inspect
 from sqlalchemy.ext.declarative import declarative_base
@@ -11,9 +11,12 @@ print('Connecting to MongoDB...')
 client = mongo_client.MongoClient(settings.MONGODB_URL)
 print('Connected to MongoDB...')
 
+# Mongo collection names
+CONFIGS_COLLECTION = "tafsiri_configs"
+
 mongo_db = client[settings.DATABASE_NAME]
 TafsiriResp = mongo_db.tafsiri_responses
-TafsiriResp.create_index([("created_at", pymongo.ASCENDING)], unique=False)
+# TafsiriResp.create_index([("created_at", pymongo.ASCENDING)], unique=False)
 
 # MSSQL Connections
 DB_PASSWORD = settings.REPORTING_PASSWORD
@@ -33,6 +36,11 @@ metadata.reflect(bind=engine)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 inspector = inspect(engine)
 
+# Function to get a MongoDB collection
+def get_mongo_collection(collection_name):
+    client = MongoClient(settings.MONGODB_URL)
+    db = client[settings.DATABASE_NAME]
+    return db[collection_name]
 
 def get_db():
     db = SessionLocal()
@@ -40,4 +48,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
