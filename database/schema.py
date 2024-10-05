@@ -21,6 +21,7 @@ class TafsiriResponsesBaseSchema(BaseModel):
 class TafsiriConfigSchema(BaseModel):
     config_name: Optional[str] = None
     tables: Optional[List[str]] = None
+    db_type: Optional[str] = None
     db_host: Optional[str] = None
     db_port: Optional[int] = None
     db_user: Optional[str] = None
