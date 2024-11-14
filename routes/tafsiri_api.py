@@ -56,19 +56,20 @@ def get_dictionary_info():
 
         for row in reader:
             parent_value = row['parent'].replace('text2sql.', '') if row['parent'] else None
-            if not row['parent']:
-                table_name = row['name']
-                table_description = row['description']
-                table_descriptions[table_name] = {
-                    'description': table_description,
-                    'columns': {}
-                }
-            else:
-                table_name, column_name = parent_value, row['name']
-                column_description = row['description']
+            if parent_value in tables or row['name'] in tables:
+                if not parent_value:
+                    table_name = row['name']
+                    table_description = row['description']
+                    table_descriptions[table_name] = {
+                        'description': table_description,
+                        'columns': {}
+                    }
+                else:
+                    table_name, column_name = parent_value, row['name']
+                    column_description = row['description']
 
-                if table_name in table_descriptions:
-                    table_descriptions[table_name]['columns'][column_name] = column_description
+                    if table_name in table_descriptions:
+                        table_descriptions[table_name]['columns'][column_name] = column_description
 
     tables_info = []
     for table_name, data in table_descriptions.items():
